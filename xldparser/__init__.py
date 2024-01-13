@@ -3,6 +3,8 @@ from datetime import datetime
 from io import TextIOBase
 from . import constants as c
 from .second_sector import SecondSectorInt
+from .toc_entry import XLDTOCEntry
+from .track import XLDTrackEntry, XLDTrackEntryCancelled, XLDTrackStatistics
 
 _ALL_COUNT = -999999
 
@@ -39,29 +41,12 @@ def parse_ripped_count(input_str: str):
 
 
 @dataclass
-class XLDTOCEntry:
-    no: int
-    start_sector: SecondSectorInt
-    end_sector: SecondSectorInt
-
-    @staticmethod
-    def parse(line: str):
-        cols = [x.strip(" ") for x in line.split("|")]
-        no = int(cols[0])
-        start_sector = SecondSectorInt(cols[3])
-        end_sector = SecondSectorInt(cols[4])
-        start_str = start_sector.as_second_sector_str()
-        length_str = SecondSectorInt(end_sector - start_sector + 1).as_second_sector_str()
-        assert cols[1] == start_str
-        assert cols[2] == length_str
-        return XLDTOCEntry(no=no, start_sector=start_sector, end_sector=end_sector)
-
-@dataclass
 class XLDAccurateRipSuccessSummary:
     v1: bool
     v2: bool
     confidence_used_v1: int
     confidence_used_v2: int
+    with_different_offset: bool
 
     @staticmethod
     def parse(line: str):
@@ -75,7 +60,8 @@ class XLDAccurateRipSuccessSummary:
             confidence_used_v1 = 0
         confidence_used_v2 = int(match_result.group(3))
         confidence_total = int(match_result.group(4))
-        return XLDAccurateRipSuccessSummary(v1=v1, v2=v2, confidence_used_v1=confidence_used_v1, confidence_used_v2=confidence_used_v2), confidence_total
+        with_different_offset = match_result.group(5) is not None
+        return XLDAccurateRipSuccessSummary(v1=v1, v2=v2, confidence_used_v1=confidence_used_v1, confidence_used_v2=confidence_used_v2, with_different_offset=with_different_offset), confidence_total
 
 @dataclass
 class XLDAccurateRipSummaryEntry:
@@ -122,66 +108,6 @@ class XLDAccurateRipSummaryEntryWithNo:
             confidence_total = int(fail_submissions_match.group(1))
         return XLDAccurateRipSummaryEntryWithNo(no = no, entry=XLDAccurateRipSummaryEntry(success_summary=success_summary, confidence_total=confidence_total))
 
-@dataclass
-class XLDTrackStatistics:
-    read_error: int
-    jitter_error: int
-    retry_sector_count: int
-    damaged_sector_count: int
-
-    @staticmethod
-    def parse(input: TextIOBase):
-        assert input.readline().rstrip() == c.XLD_TRACK_STATISTICS_HEADER
-        read_error = input.readline().rstrip()
-        assert read_error.startswith(c.XLD_TRACK_STATISTICS_READ_ERROR)
-        read_error = int(read_error[len(c.XLD_TRACK_STATISTICS_READ_ERROR):])
-        jitter_error = input.readline().rstrip()
-        assert jitter_error.startswith(c.XLD_TRACK_STATISTICS_JITTER_ERROR)
-        jitter_error = int(jitter_error[len(c.XLD_TRACK_STATISTICS_JITTER_ERROR):])
-        retry_sector_count = input.readline().rstrip()
-        assert retry_sector_count.startswith(c.XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT)
-        retry_sector_count = int(retry_sector_count[len(c.XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT):])
-        damaged_sector_count = input.readline().rstrip()
-        assert damaged_sector_count.startswith(c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT)
-        damaged_sector_count = int(damaged_sector_count[len(c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT):])
-        return XLDTrackStatistics(
-            read_error=read_error,
-            jitter_error=jitter_error,
-            retry_sector_count=retry_sector_count,
-            damaged_sector_count=damaged_sector_count
-        )
-        
-
-@dataclass
-class XLDPerTrackStatistics(XLDTrackStatistics):
-    damaged_sectors: list[SecondSectorInt]
-
-    @staticmethod
-    def parse(input: TextIOBase):
-        sup = XLDTrackStatistics.parse(input)
-        damaged_sectors: list[SecondSectorInt] = []
-        list_of_damaged_sector_positions = input.readline().rstrip()
-        if list_of_damaged_sector_positions == c.XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS:
-            i = 0
-            while True:
-                line = input.readline().rstrip()
-                if line == "":
-                    break
-                i += 1
-                l = c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_POSITION_RE.match(line)
-                if l is None:
-                    raise Exception("Unknown line: " + line)
-                assert int(l.group(1)) == i
-                damaged_sectors.append(SecondSectorInt.from_second_sector_str(l.group(2)))
-        elif list_of_damaged_sector_positions != "":
-            raise Exception("Unknown line: " + list_of_damaged_sector_positions)
-        return XLDPerTrackStatistics(
-            read_error=sup.read_error,
-            jitter_error=sup.jitter_error,
-            retry_sector_count=sup.retry_sector_count,
-            damaged_sector_count=sup.damaged_sector_count,
-            damaged_sectors=damaged_sectors
-        )
 
 @dataclass
 class XLDAccurateRipPerTrackEntry:
@@ -190,69 +116,6 @@ class XLDAccurateRipPerTrackEntry:
     accuratery_ripped: bool
     total_submissions: int
 
-@dataclass
-class XLDTrackEntryCancelled:
-    no: int
-    filename: str
-    cancelled: bool = True
-
-@dataclass
-class XLDTrackEntry:
-    no: int
-    filename: str
-    pre_gap_length: SecondSectorInt
-    crc32_hash: str
-    crc32_skip_zero_hash: str
-    accuraterip_v1: str
-    accuraterip_v2: str
-    accuraterip_result: XLDAccurateRipSummaryEntry | None
-    statistics: XLDPerTrackStatistics
-
-    @staticmethod
-    def parse(first: str, line: TextIOBase):
-        no_match = c.XLD_TRACK_HEADER.match(first)
-        if no_match is None:
-            raise Exception("Unknown line: " + first)
-        no = int(no_match.group(1))
-        filename = line.readline().rstrip()
-        assert filename.startswith(c.XLD_TRACK_FILENAME_HEADER)
-        filename = filename[len(c.XLD_TRACK_FILENAME_HEADER):]
-        pre_gap_length = line.readline().rstrip()
-        if pre_gap_length.startswith(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER):
-            pre_gap_length = SecondSectorInt.from_second_sector_str(pre_gap_length[len(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER):])
-            assert line.readline().rstrip() == ""
-        else:
-            if pre_gap_length == "    (cancelled by user)":
-                assert line.readline().rstrip() == ""
-                return XLDTrackEntryCancelled(no=no, filename=filename)
-            assert pre_gap_length == ""
-            pre_gap_length = SecondSectorInt(0)
-
-        crc32_hash = line.readline().rstrip()
-        assert crc32_hash.startswith(c.XLD_TRACK_CRC32_HASH_HEADER)
-        crc32_hash = crc32_hash[len(c.XLD_TRACK_CRC32_HASH_HEADER):]
-        crc32_skip_zero_hash = line.readline().rstrip()
-        assert crc32_skip_zero_hash.startswith(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER)
-        crc32_skip_zero_hash = crc32_skip_zero_hash[len(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER):]
-        accuraterip_v1 = line.readline().rstrip()
-        assert accuraterip_v1.startswith(c.XLD_TRACK_ACCURATERIP_V1_HEADER)
-        accuraterip_v1 = accuraterip_v1[len(c.XLD_TRACK_ACCURATERIP_V1_HEADER):]
-        accuraterip_v2 = line.readline().rstrip()
-        assert accuraterip_v2.startswith(c.XLD_TRACK_ACCURATERIP_V2_HEADER)
-        accuraterip_v2 = accuraterip_v2[len(c.XLD_TRACK_ACCURATERIP_V2_HEADER):]
-        accuraterip_result = XLDAccurateRipSummaryEntry.parse_track(line.readline().rstrip())
-        statistics = XLDPerTrackStatistics.parse(line)
-        return XLDTrackEntry(
-            no=no,
-            filename=filename,
-            pre_gap_length=pre_gap_length,
-            crc32_hash=crc32_hash,
-            crc32_skip_zero_hash=crc32_skip_zero_hash,
-            accuraterip_v1=accuraterip_v1,
-            accuraterip_v2=accuraterip_v2,
-            accuraterip_result=accuraterip_result,
-            statistics=statistics
-        )
 
 @dataclass
 class XLDAlternateOffsetCorrectionEntry:
@@ -526,7 +389,10 @@ class XLDLog:
                         dest.write("v2")
                     else:
                         raise Exception("wrong flags")
-                    dest.write(", confidence %d/%d)\n" % (track.entry.success_summary.confidence_used_v2, track.entry.confidence_total))
+                    dest.write(", confidence %d/%d" % (track.entry.success_summary.confidence_used_v2, track.entry.confidence_total))
+                    if track.entry.success_summary.with_different_offset:
+                        dest.write(", with different offset")
+                    dest.write(")\n")
             if not self.is_cancelled:
                 dest.write("        ->")
                 if success_count > 0 and fail_count == 0 and not_found_count == 0:
@@ -564,7 +430,7 @@ class XLDLog:
             if isinstance(track, XLDTrackEntryCancelled):
                 dest.write("    (cancelled by user)\n\n")
                 break
-            elif not isinstance(track, XLDTrackEntry):
+            elif not isinstance(track, XLDTrackEntry): # pyright: ignore
                 raise Exception("???")
             if track.pre_gap_length > 0:
                 dest.write(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER + track.pre_gap_length.as_second_sector_str() + "\n")
@@ -581,7 +447,10 @@ class XLDLog:
                     dest.write("s")
                 dest.write(").\n")
             else:
-                dest.write("        ->Accurately ripped (")
+                dest.write("        ->Accurately ripped ")
+                if track.accuraterip_result.success_summary.offset != 0:
+                    dest.write("with different offset ")
+                dest.write("(")
                 if track.accuraterip_result.success_summary.v1:
                     dest.write("v1")
                     if track.accuraterip_result.success_summary.v2:
@@ -593,7 +462,10 @@ class XLDLog:
                 dest.write(", confidence ")
                 if track.accuraterip_result.success_summary.confidence_used_v1 > 0:
                     dest.write("%d+" % (track.accuraterip_result.success_summary.confidence_used_v1,))
-                dest.write("%d/%d)\n" % (track.accuraterip_result.success_summary.confidence_used_v2, track.accuraterip_result.confidence_total))
+                dest.write("%d/%d" % (track.accuraterip_result.success_summary.confidence_used_v2, track.accuraterip_result.confidence_total))
+                if track.accuraterip_result.success_summary.offset != 0:
+                    dest.write(", offset %s%d" % ("+" if track.accuraterip_result.success_summary.offset >= 0 else "", track.accuraterip_result.success_summary.offset))
+                dest.write(")\n")
             dest.write(c.XLD_TRACK_STATISTICS_HEADER + "\n")
             dest.write(c.XLD_TRACK_STATISTICS_READ_ERROR + str(track.statistics.read_error) + "\n")
             dest.write(c.XLD_TRACK_STATISTICS_JITTER_ERROR + str(track.statistics.jitter_error) + "\n")
