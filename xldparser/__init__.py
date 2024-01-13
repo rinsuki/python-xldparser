@@ -1,14 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 from io import TextIOBase
-import re
 from . import constants as c
+from .second_sector import SecondSectorInt
 
 _ALL_COUNT = -999999
-
-SECOND_SECTOR_STR = re.compile(r"^([0-9]{2}):([0-9]{2}):([0-9]{2})$")
-
-SECOND_PER_SECTOR = 75
 
 def parse_ripped_count(input_str: str):
     input = input_str.split(", ")
@@ -41,36 +37,21 @@ def parse_ripped_count(input_str: str):
     assert (success_count != 0) or (fail_count != 0) or (not_found_count != 0)
     return success_count, fail_count, not_found_count
 
-def second_sector_str_to_sector(second_sector: str):
-    result = SECOND_SECTOR_STR.match(second_sector)
-    assert result is not None
-    return (
-        (int(result.group(1)) * 60 * SECOND_PER_SECTOR) +
-        (int(result.group(2)) * SECOND_PER_SECTOR) +
-        int(result.group(3))
-    )
-
-def sector_to_second_sector_str(sector: int):
-    return "%02d:%02d:%02d" % (
-        sector // SECOND_PER_SECTOR // 60,
-        (sector // SECOND_PER_SECTOR) % 60,
-        sector % SECOND_PER_SECTOR
-    )
 
 @dataclass
 class XLDTOCEntry:
     no: int
-    start_sector: int
-    end_sector: int
+    start_sector: SecondSectorInt
+    end_sector: SecondSectorInt
 
     @staticmethod
     def parse(line: str):
         cols = [x.strip(" ") for x in line.split("|")]
         no = int(cols[0])
-        start_sector = int(cols[3])
-        end_sector = int(cols[4])
-        start_str = sector_to_second_sector_str(start_sector)
-        length_str = sector_to_second_sector_str(end_sector - start_sector + 1)
+        start_sector = SecondSectorInt(cols[3])
+        end_sector = SecondSectorInt(cols[4])
+        start_str = start_sector.as_second_sector_str()
+        length_str = SecondSectorInt(end_sector - start_sector + 1).as_second_sector_str()
         assert cols[1] == start_str
         assert cols[2] == length_str
         return XLDTOCEntry(no=no, start_sector=start_sector, end_sector=end_sector)
@@ -173,12 +154,12 @@ class XLDTrackStatistics:
 
 @dataclass
 class XLDPerTrackStatistics(XLDTrackStatistics):
-    damaged_sectors: list[int]
+    damaged_sectors: list[SecondSectorInt]
 
     @staticmethod
     def parse(input: TextIOBase):
         sup = XLDTrackStatistics.parse(input)
-        damaged_sectors: list[int] = []
+        damaged_sectors: list[SecondSectorInt] = []
         list_of_damaged_sector_positions = input.readline().rstrip()
         if list_of_damaged_sector_positions == c.XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS:
             i = 0
@@ -191,7 +172,7 @@ class XLDPerTrackStatistics(XLDTrackStatistics):
                 if l is None:
                     raise Exception("Unknown line: " + line)
                 assert int(l.group(1)) == i
-                damaged_sectors.append(second_sector_str_to_sector(l.group(2)))
+                damaged_sectors.append(SecondSectorInt.from_second_sector_str(l.group(2)))
         elif list_of_damaged_sector_positions != "":
             raise Exception("Unknown line: " + list_of_damaged_sector_positions)
         return XLDPerTrackStatistics(
@@ -219,7 +200,7 @@ class XLDTrackEntryCancelled:
 class XLDTrackEntry:
     no: int
     filename: str
-    pre_gap_length: int
+    pre_gap_length: SecondSectorInt
     crc32_hash: str
     crc32_skip_zero_hash: str
     accuraterip_v1: str
@@ -238,14 +219,14 @@ class XLDTrackEntry:
         filename = filename[len(c.XLD_TRACK_FILENAME_HEADER):]
         pre_gap_length = line.readline().rstrip()
         if pre_gap_length.startswith(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER):
-            pre_gap_length = second_sector_str_to_sector(pre_gap_length[len(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER):])
+            pre_gap_length = SecondSectorInt.from_second_sector_str(pre_gap_length[len(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER):])
             assert line.readline().rstrip() == ""
         else:
             if pre_gap_length == "    (cancelled by user)":
                 assert line.readline().rstrip() == ""
                 return XLDTrackEntryCancelled(no=no, filename=filename)
             assert pre_gap_length == ""
-            pre_gap_length = 0
+            pre_gap_length = SecondSectorInt(0)
 
         crc32_hash = line.readline().rstrip()
         assert crc32_hash.startswith(c.XLD_TRACK_CRC32_HASH_HEADER)
@@ -496,15 +477,11 @@ class XLDLog:
         dest.write(c.XLD_TOC_HEADER_TITLE + "\n")
         dest.write(c.XLD_TOC_HEADER_SEPARATOR + "\n")
         for track in self.toc:
-            len_sector = track.end_sector - track.start_sector + 1
-            dest.write("       %2d  | %02d:%02d:%02d | %02d:%02d:%02d |    %6d    |   %6d   \n" % (
+            len_sector = SecondSectorInt(track.end_sector - track.start_sector + 1)
+            dest.write("       %2d  | %s | %s |    %6d    |   %6d   \n" % (
                 track.no,
-                track.start_sector // SECOND_PER_SECTOR // 60,
-                track.start_sector // SECOND_PER_SECTOR % 60,
-                track.start_sector % SECOND_PER_SECTOR,
-                len_sector // SECOND_PER_SECTOR // 60,
-                len_sector // SECOND_PER_SECTOR % 60,
-                len_sector % SECOND_PER_SECTOR,
+                track.start_sector.as_second_sector_str(),
+                len_sector.as_second_sector_str(),
                 track.start_sector,
                 track.end_sector
             ))
@@ -590,7 +567,7 @@ class XLDLog:
             elif not isinstance(track, XLDTrackEntry):
                 raise Exception("???")
             if track.pre_gap_length > 0:
-                dest.write(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER + sector_to_second_sector_str(track.pre_gap_length) + "\n")
+                dest.write(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER + track.pre_gap_length.as_second_sector_str() + "\n")
             dest.write("\n")
             dest.write(c.XLD_TRACK_CRC32_HASH_HEADER + track.crc32_hash + "\n")
             dest.write(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER + track.crc32_skip_zero_hash + "\n")
@@ -625,7 +602,7 @@ class XLDLog:
             if len(track.statistics.damaged_sectors) > 0:
                 dest.write(c.XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS + "\n")
                 for i, sector in enumerate(track.statistics.damaged_sectors):
-                    dest.write("            (%d) %s\n" % (i + 1, sector_to_second_sector_str(sector)))
+                    dest.write("            (%d) %s\n" % (i + 1, sector.as_second_sector_str()))
             dest.write("\n")
         if self.successfly_ripped:
             dest.write(c.XLD_FOOTER_NO_ERROR + "\n")
