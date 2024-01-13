@@ -2,53 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from io import TextIOBase
 import re
-
-XLD_VERSION_PREFIX = "X Lossless Decoder version "
-XLD_LOG_START_TIME_PREFIX = "XLD extraction logfile from "
-XLD_LOG_START_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %z"
-XLD_LOG_USED_DRIVE_PREFIX = "Used drive : "
-XLD_LOG_MEDIA_TYPE_PREFIX = "Media type : "
-XLD_RIPPER_MODE_PREFIX = "Ripper mode             : "
-XLD_DISABLE_AUDIO_CACHE_PREFIX = "Disable audio cache     : "
-XLD_MAKE_USE_OF_C2_POINTERS_PREFIX = "Make use of C2 pointers : "
-XLD_READ_OFFSET_CORRECTION_PREFIX = "Read offset correction  : "
-XLD_MAX_RETRY_COUNT_PREFIX = "Max retry count         : "
-XLD_GAP_STATUS_PREFIX = "Gap status              : "
-XLD_TOC_HEADER = "TOC of the extracted CD"
-XLD_TOC_HEADER_TITLE = "     Track |   Start  |  Length  | Start sector | End sector "
-XLD_TOC_HEADER_SEPARATOR = "    ---------------------------------------------------------"
-XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TITLE = "List of alternate offset correction values"
-XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_HEAD = "        #  | Absolute | Relative | Confidence "
-XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_SEPARATOR = "    ------------------------------------------"
-XLD_ACCURATERIP_SUMMARY_HEADER_RE = re.compile(r"^AccurateRip Summary \(DiscID: ([0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8})\)$")
-XLD_ACCURATERIP_SUMMARY_TRACK_LINE = re.compile(r"    Track ([0-9]{2}) : ((OK|NG) \((.+)\)|Not Found)$")
-XLD_ACCURATERIP_SUMMARY_SUCCESS_SUBMISSIONS = re.compile(r"(v1\+v2|v1|v2), confidence ([0-9]+\+)?([0-9]+)/([0-9]+)")
-XLD_ACCURATERIP_SUMMARY_FAIL_SUBMISSIONS = re.compile(r"total ([0-9]+) submissions")
-XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_HEADER = "AccurateRip Summary"
-XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_MESSAGE = "    Disc not found in AccurateRip DB."
-XLD_ACCURATERIP_SUMMARY_ACCURATELY_RIPPED = "        ->All tracks accurately ripped."
-XLD_ACCURATERIP_SUMMARY_PARTIALLY_FAILED = re.compile(r"^        ->([0-9]+) tracks? accurately ripped, ([0-9]+) tracks? not$")
-XLD_ALL_TRACKS_HEADER = "All Tracks"
-XLD_TRACK_STATISTICS_HEADER = "    Statistics"
-XLD_TRACK_STATISTICS_READ_ERROR = "        Read error                           : "
-XLD_TRACK_STATISTICS_JITTER_ERROR = "        Jitter error (maybe fixed)           : "
-XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT = "        Retry sector count                   : "
-XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT = "        Damaged sector count                 : "
-XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS = "        List of damaged sector positions     :"
-XLD_TRACK_STATISTICS_DAMAGED_SECTOR_POSITION_RE = re.compile(r"^            \(([0-9]+)\) ([0-9]{2}:[0-9]{2}:[0-9]{2})$")
-XLD_TRACK_HEADER = re.compile(r"^Track ([0-9]{2})$")
-XLD_TRACK_FILENAME_HEADER = "    Filename : "
-XLD_TRACK_PRE_GAP_LENGTH_HEADER = "    Pre-gap length : "
-XLD_TRACK_CRC32_HASH_HEADER = "    CRC32 hash               : "
-XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER = "    CRC32 hash (skip zero)   : "
-XLD_TRACK_ACCURATERIP_V1_HEADER = "    AccurateRip v1 signature : "
-XLD_TRACK_ACCURATERIP_V2_HEADER = "    AccurateRip v2 signature : "
-XLD_TRACK_ACCURATERIP_RESULT_SUCCESS_RE = re.compile(r"^        ->Accurately ripped \((.+)\)$")
-XLD_TRACK_ACCURATERIP_RESULT_FAIL_RE = re.compile(r"^        ->Rip may not be accurate \(total ([0-9]+) submissions?\)\.$")
-XLD_TRACK_ACCURATERIP_RESULT_NOTFOUND = "        ->Track not present in AccurateRip database."
-XLD_FOOTER_NO_ERROR = "No errors occurred"
-XLD_FOOTER_SOME_ERROR = "Some inconsistencies found"
-XLD_FOOTER = "End of status report"
+from . import constants as c
 
 _ALL_COUNT = -999999
 
@@ -130,7 +84,7 @@ class XLDAccurateRipSuccessSummary:
 
     @staticmethod
     def parse(line: str):
-        match_result = XLD_ACCURATERIP_SUMMARY_SUCCESS_SUBMISSIONS.match(line)
+        match_result = c.XLD_ACCURATERIP_SUMMARY_SUCCESS_SUBMISSIONS.match(line)
         assert match_result is not None
         v1 = match_result.group(1) == "v1" or match_result.group(1) == "v1+v2"
         v2 = match_result.group(1) == "v2" or match_result.group(1) == "v1+v2"
@@ -149,13 +103,13 @@ class XLDAccurateRipSummaryEntry:
 
     @staticmethod
     def parse_track(line: str):
-        if line == XLD_TRACK_ACCURATERIP_RESULT_NOTFOUND:
+        if line == c.XLD_TRACK_ACCURATERIP_RESULT_NOTFOUND:
             return None
-        success_match = XLD_TRACK_ACCURATERIP_RESULT_SUCCESS_RE.match(line)
+        success_match = c.XLD_TRACK_ACCURATERIP_RESULT_SUCCESS_RE.match(line)
         if success_match is not None:
             success_summary, confidence_total = XLDAccurateRipSuccessSummary.parse(success_match.group(1))
         else:
-            fail_match = XLD_TRACK_ACCURATERIP_RESULT_FAIL_RE.match(line)
+            fail_match = c.XLD_TRACK_ACCURATERIP_RESULT_FAIL_RE.match(line)
             if fail_match is None:
                 raise Exception("Unknown line: " + line)
             confidence_total = int(fail_match.group(1))
@@ -169,7 +123,7 @@ class XLDAccurateRipSummaryEntryWithNo:
 
     @staticmethod
     def parse(line: str):
-        matched_line = XLD_ACCURATERIP_SUMMARY_TRACK_LINE.match(line)
+        matched_line = c.XLD_ACCURATERIP_SUMMARY_TRACK_LINE.match(line)
         if matched_line is None:
             raise Exception("Unknown line: " + line)
         no = int(matched_line.group(1))
@@ -181,7 +135,7 @@ class XLDAccurateRipSummaryEntryWithNo:
             success_summary, confidence_total = XLDAccurateRipSuccessSummary.parse(matched_line.group(4))
         else:
             assert matched_line.group(3) == "NG"
-            fail_submissions_match = XLD_ACCURATERIP_SUMMARY_FAIL_SUBMISSIONS.match(matched_line.group(4))
+            fail_submissions_match = c.XLD_ACCURATERIP_SUMMARY_FAIL_SUBMISSIONS.match(matched_line.group(4))
             if fail_submissions_match is None:
                 raise Exception("Unknown line: " + line)
             confidence_total = int(fail_submissions_match.group(1))
@@ -196,19 +150,19 @@ class XLDTrackStatistics:
 
     @staticmethod
     def parse(input: TextIOBase):
-        assert input.readline().rstrip() == XLD_TRACK_STATISTICS_HEADER
+        assert input.readline().rstrip() == c.XLD_TRACK_STATISTICS_HEADER
         read_error = input.readline().rstrip()
-        assert read_error.startswith(XLD_TRACK_STATISTICS_READ_ERROR)
-        read_error = int(read_error[len(XLD_TRACK_STATISTICS_READ_ERROR):])
+        assert read_error.startswith(c.XLD_TRACK_STATISTICS_READ_ERROR)
+        read_error = int(read_error[len(c.XLD_TRACK_STATISTICS_READ_ERROR):])
         jitter_error = input.readline().rstrip()
-        assert jitter_error.startswith(XLD_TRACK_STATISTICS_JITTER_ERROR)
-        jitter_error = int(jitter_error[len(XLD_TRACK_STATISTICS_JITTER_ERROR):])
+        assert jitter_error.startswith(c.XLD_TRACK_STATISTICS_JITTER_ERROR)
+        jitter_error = int(jitter_error[len(c.XLD_TRACK_STATISTICS_JITTER_ERROR):])
         retry_sector_count = input.readline().rstrip()
-        assert retry_sector_count.startswith(XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT)
-        retry_sector_count = int(retry_sector_count[len(XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT):])
+        assert retry_sector_count.startswith(c.XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT)
+        retry_sector_count = int(retry_sector_count[len(c.XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT):])
         damaged_sector_count = input.readline().rstrip()
-        assert damaged_sector_count.startswith(XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT)
-        damaged_sector_count = int(damaged_sector_count[len(XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT):])
+        assert damaged_sector_count.startswith(c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT)
+        damaged_sector_count = int(damaged_sector_count[len(c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT):])
         return XLDTrackStatistics(
             read_error=read_error,
             jitter_error=jitter_error,
@@ -226,14 +180,14 @@ class XLDPerTrackStatistics(XLDTrackStatistics):
         sup = XLDTrackStatistics.parse(input)
         damaged_sectors: list[int] = []
         list_of_damaged_sector_positions = input.readline().rstrip()
-        if list_of_damaged_sector_positions == XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS:
+        if list_of_damaged_sector_positions == c.XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS:
             i = 0
             while True:
                 line = input.readline().rstrip()
                 if line == "":
                     break
                 i += 1
-                l = XLD_TRACK_STATISTICS_DAMAGED_SECTOR_POSITION_RE.match(line)
+                l = c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_POSITION_RE.match(line)
                 if l is None:
                     raise Exception("Unknown line: " + line)
                 assert int(l.group(1)) == i
@@ -275,16 +229,16 @@ class XLDTrackEntry:
 
     @staticmethod
     def parse(first: str, line: TextIOBase):
-        no_match = XLD_TRACK_HEADER.match(first)
+        no_match = c.XLD_TRACK_HEADER.match(first)
         if no_match is None:
             raise Exception("Unknown line: " + first)
         no = int(no_match.group(1))
         filename = line.readline().rstrip()
-        assert filename.startswith(XLD_TRACK_FILENAME_HEADER)
-        filename = filename[len(XLD_TRACK_FILENAME_HEADER):]
+        assert filename.startswith(c.XLD_TRACK_FILENAME_HEADER)
+        filename = filename[len(c.XLD_TRACK_FILENAME_HEADER):]
         pre_gap_length = line.readline().rstrip()
-        if pre_gap_length.startswith(XLD_TRACK_PRE_GAP_LENGTH_HEADER):
-            pre_gap_length = second_sector_str_to_sector(pre_gap_length[len(XLD_TRACK_PRE_GAP_LENGTH_HEADER):])
+        if pre_gap_length.startswith(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER):
+            pre_gap_length = second_sector_str_to_sector(pre_gap_length[len(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER):])
             assert line.readline().rstrip() == ""
         else:
             if pre_gap_length == "    (cancelled by user)":
@@ -294,17 +248,17 @@ class XLDTrackEntry:
             pre_gap_length = 0
 
         crc32_hash = line.readline().rstrip()
-        assert crc32_hash.startswith(XLD_TRACK_CRC32_HASH_HEADER)
-        crc32_hash = crc32_hash[len(XLD_TRACK_CRC32_HASH_HEADER):]
+        assert crc32_hash.startswith(c.XLD_TRACK_CRC32_HASH_HEADER)
+        crc32_hash = crc32_hash[len(c.XLD_TRACK_CRC32_HASH_HEADER):]
         crc32_skip_zero_hash = line.readline().rstrip()
-        assert crc32_skip_zero_hash.startswith(XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER)
-        crc32_skip_zero_hash = crc32_skip_zero_hash[len(XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER):]
+        assert crc32_skip_zero_hash.startswith(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER)
+        crc32_skip_zero_hash = crc32_skip_zero_hash[len(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER):]
         accuraterip_v1 = line.readline().rstrip()
-        assert accuraterip_v1.startswith(XLD_TRACK_ACCURATERIP_V1_HEADER)
-        accuraterip_v1 = accuraterip_v1[len(XLD_TRACK_ACCURATERIP_V1_HEADER):]
+        assert accuraterip_v1.startswith(c.XLD_TRACK_ACCURATERIP_V1_HEADER)
+        accuraterip_v1 = accuraterip_v1[len(c.XLD_TRACK_ACCURATERIP_V1_HEADER):]
         accuraterip_v2 = line.readline().rstrip()
-        assert accuraterip_v2.startswith(XLD_TRACK_ACCURATERIP_V2_HEADER)
-        accuraterip_v2 = accuraterip_v2[len(XLD_TRACK_ACCURATERIP_V2_HEADER):]
+        assert accuraterip_v2.startswith(c.XLD_TRACK_ACCURATERIP_V2_HEADER)
+        accuraterip_v2 = accuraterip_v2[len(c.XLD_TRACK_ACCURATERIP_V2_HEADER):]
         accuraterip_result = XLDAccurateRipSummaryEntry.parse_track(line.readline().rstrip())
         statistics = XLDPerTrackStatistics.parse(line)
         return XLDTrackEntry(
@@ -363,40 +317,40 @@ class XLDLog:
         cancelled = False
 
         xld_version = input.readline().rstrip()
-        assert xld_version.startswith(XLD_VERSION_PREFIX)
-        xld_version = xld_version[len(XLD_VERSION_PREFIX):]
+        assert xld_version.startswith(c.XLD_VERSION_PREFIX)
+        xld_version = xld_version[len(c.XLD_VERSION_PREFIX):]
 
         assert input.readline().rstrip() == ""
 
         log_start_time_str = input.readline().rstrip()
-        assert log_start_time_str.startswith(XLD_LOG_START_TIME_PREFIX)
-        log_start_time = datetime.strptime(log_start_time_str[len(XLD_LOG_START_TIME_PREFIX):], XLD_LOG_START_TIME_FORMAT)
+        assert log_start_time_str.startswith(c.XLD_LOG_START_TIME_PREFIX)
+        log_start_time = datetime.strptime(log_start_time_str[len(c.XLD_LOG_START_TIME_PREFIX):], c.XLD_LOG_START_TIME_FORMAT)
 
         assert input.readline().rstrip() == ""
         artist_and_album_title = input.readline().rstrip()
         assert input.readline().rstrip() == ""
 
         used_drive = input.readline().rstrip()
-        assert used_drive.startswith(XLD_LOG_USED_DRIVE_PREFIX)
-        used_drive = used_drive[len(XLD_LOG_USED_DRIVE_PREFIX):]
+        assert used_drive.startswith(c.XLD_LOG_USED_DRIVE_PREFIX)
+        used_drive = used_drive[len(c.XLD_LOG_USED_DRIVE_PREFIX):]
 
         media_type = input.readline().rstrip()
-        assert media_type.startswith(XLD_LOG_MEDIA_TYPE_PREFIX)
-        media_type = media_type[len(XLD_LOG_MEDIA_TYPE_PREFIX):]
+        assert media_type.startswith(c.XLD_LOG_MEDIA_TYPE_PREFIX)
+        media_type = media_type[len(c.XLD_LOG_MEDIA_TYPE_PREFIX):]
 
         assert input.readline().rstrip() == ""
 
         ripper_mode = input.readline().rstrip()
-        assert ripper_mode.startswith(XLD_RIPPER_MODE_PREFIX)
-        ripper_mode = ripper_mode[len(XLD_RIPPER_MODE_PREFIX):]
+        assert ripper_mode.startswith(c.XLD_RIPPER_MODE_PREFIX)
+        ripper_mode = ripper_mode[len(c.XLD_RIPPER_MODE_PREFIX):]
 
         disable_audio_cache = input.readline().rstrip()
-        assert disable_audio_cache.startswith(XLD_DISABLE_AUDIO_CACHE_PREFIX)
-        disable_audio_cache = disable_audio_cache[len(XLD_DISABLE_AUDIO_CACHE_PREFIX):]
+        assert disable_audio_cache.startswith(c.XLD_DISABLE_AUDIO_CACHE_PREFIX)
+        disable_audio_cache = disable_audio_cache[len(c.XLD_DISABLE_AUDIO_CACHE_PREFIX):]
 
         make_use_of_c2_pointers = input.readline().rstrip()
-        assert make_use_of_c2_pointers.startswith(XLD_MAKE_USE_OF_C2_POINTERS_PREFIX)
-        make_use_of_c2_pointers = make_use_of_c2_pointers[len(XLD_MAKE_USE_OF_C2_POINTERS_PREFIX):]
+        assert make_use_of_c2_pointers.startswith(c.XLD_MAKE_USE_OF_C2_POINTERS_PREFIX)
+        make_use_of_c2_pointers = make_use_of_c2_pointers[len(c.XLD_MAKE_USE_OF_C2_POINTERS_PREFIX):]
         if make_use_of_c2_pointers == "NO":
             make_use_of_c2_pointers = False
         elif make_use_of_c2_pointers == "YES":
@@ -405,22 +359,22 @@ class XLDLog:
             raise Exception(f"Unknown Value for Make use of C2 pointers: {make_use_of_c2_pointers}")
         
         read_offset_correction = input.readline().rstrip()
-        assert read_offset_correction.startswith(XLD_READ_OFFSET_CORRECTION_PREFIX)
-        read_offset_correction = int(read_offset_correction[len(XLD_READ_OFFSET_CORRECTION_PREFIX):])
+        assert read_offset_correction.startswith(c.XLD_READ_OFFSET_CORRECTION_PREFIX)
+        read_offset_correction = int(read_offset_correction[len(c.XLD_READ_OFFSET_CORRECTION_PREFIX):])
 
         max_retry_count = input.readline().rstrip()
-        assert max_retry_count.startswith(XLD_MAX_RETRY_COUNT_PREFIX)
-        max_retry_count = int(max_retry_count[len(XLD_MAX_RETRY_COUNT_PREFIX):])
+        assert max_retry_count.startswith(c.XLD_MAX_RETRY_COUNT_PREFIX)
+        max_retry_count = int(max_retry_count[len(c.XLD_MAX_RETRY_COUNT_PREFIX):])
 
         gap_status = input.readline().rstrip()
-        assert gap_status.startswith(XLD_GAP_STATUS_PREFIX)
-        gap_status = gap_status[len(XLD_GAP_STATUS_PREFIX):]
+        assert gap_status.startswith(c.XLD_GAP_STATUS_PREFIX)
+        gap_status = gap_status[len(c.XLD_GAP_STATUS_PREFIX):]
 
         assert input.readline().rstrip() == ""
 
-        assert input.readline().rstrip() == XLD_TOC_HEADER
-        assert input.readline().rstrip("\n") == XLD_TOC_HEADER_TITLE
-        assert input.readline().rstrip() == XLD_TOC_HEADER_SEPARATOR
+        assert input.readline().rstrip() == c.XLD_TOC_HEADER
+        assert input.readline().rstrip("\n") == c.XLD_TOC_HEADER_TITLE
+        assert input.readline().rstrip() == c.XLD_TOC_HEADER_SEPARATOR
 
         toc: list[XLDTOCEntry] = []
         while True:
@@ -432,9 +386,9 @@ class XLDLog:
         alternate_offset_corrections: list[XLDAlternateOffsetCorrectionEntry] = []
         while True:
             accuraterip_summary_header = input.readline().rstrip()
-            if accuraterip_summary_header == XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TITLE:
-                assert input.readline().rstrip("\n") == XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_HEAD
-                assert input.readline().rstrip() == XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_SEPARATOR
+            if accuraterip_summary_header == c.XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TITLE:
+                assert input.readline().rstrip("\n") == c.XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_HEAD
+                assert input.readline().rstrip() == c.XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_SEPARATOR
                 i = 0
                 while True:
                     line = input.readline().rstrip()
@@ -446,12 +400,12 @@ class XLDLog:
             break
 
         accuraterip_summary: list[XLDAccurateRipSummaryEntryWithNo] = []
-        if accuraterip_summary_header == XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_HEADER:
-            assert input.readline().rstrip() == XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_MESSAGE
+        if accuraterip_summary_header == c.XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_HEADER:
+            assert input.readline().rstrip() == c.XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_MESSAGE
             accuraterip_disc_id = None
             assert input.readline().rstrip() == ""
         else:
-            accuraterip_summary_header = XLD_ACCURATERIP_SUMMARY_HEADER_RE.match(accuraterip_summary_header)
+            accuraterip_summary_header = c.XLD_ACCURATERIP_SUMMARY_HEADER_RE.match(accuraterip_summary_header)
             assert accuraterip_summary_header is not None
             accuraterip_disc_id = accuraterip_summary_header.group(1)
             i = 0
@@ -481,7 +435,7 @@ class XLDLog:
                 else:
                     raise Exception("Unknown line: " + line)
         if not cancelled:
-            assert input.readline().rstrip() == XLD_ALL_TRACKS_HEADER
+            assert input.readline().rstrip() == c.XLD_ALL_TRACKS_HEADER
             all_tracks_summary = XLDTrackStatistics.parse(input)
             assert input.readline().rstrip() == ""
         else:
@@ -491,10 +445,10 @@ class XLDLog:
         successfly_ripped = False
         while True:
             line = input.readline().rstrip()
-            if line == XLD_FOOTER_NO_ERROR:
+            if line == c.XLD_FOOTER_NO_ERROR:
                 successfly_ripped = True
                 break
-            elif line == XLD_FOOTER_SOME_ERROR:
+            elif line == c.XLD_FOOTER_SOME_ERROR:
                 successfly_ripped = False
                 break
             elif not line.startswith("Track "):
@@ -527,20 +481,20 @@ class XLDLog:
         )
 
     def as_log(self, dest: TextIOBase):
-        dest.write(XLD_VERSION_PREFIX + self.xld_version + "\n\n")
-        dest.write(XLD_LOG_START_TIME_PREFIX + self.log_start_time.strftime(XLD_LOG_START_TIME_FORMAT) + "\n\n")
+        dest.write(c.XLD_VERSION_PREFIX + self.xld_version + "\n\n")
+        dest.write(c.XLD_LOG_START_TIME_PREFIX + self.log_start_time.strftime(c.XLD_LOG_START_TIME_FORMAT) + "\n\n")
         dest.write(self.artist_and_album_title + "\n\n")
-        dest.write(XLD_LOG_USED_DRIVE_PREFIX + self.used_drive + "\n")
-        dest.write(XLD_LOG_MEDIA_TYPE_PREFIX + self.media_type + "\n\n")
-        dest.write(XLD_RIPPER_MODE_PREFIX + self.ripper_mode + "\n")
-        dest.write(XLD_DISABLE_AUDIO_CACHE_PREFIX + self.disable_audio_cache + "\n")
-        dest.write(XLD_MAKE_USE_OF_C2_POINTERS_PREFIX + ("YES" if self.make_use_of_c2_pointers else "NO") + "\n")
-        dest.write(XLD_READ_OFFSET_CORRECTION_PREFIX + str(self.read_offset_correction) + "\n")
-        dest.write(XLD_MAX_RETRY_COUNT_PREFIX + str(self.max_retry_count) + "\n")
-        dest.write(XLD_GAP_STATUS_PREFIX + self.gap_status + "\n\n")
-        dest.write(XLD_TOC_HEADER + "\n")
-        dest.write(XLD_TOC_HEADER_TITLE + "\n")
-        dest.write(XLD_TOC_HEADER_SEPARATOR + "\n")
+        dest.write(c.XLD_LOG_USED_DRIVE_PREFIX + self.used_drive + "\n")
+        dest.write(c.XLD_LOG_MEDIA_TYPE_PREFIX + self.media_type + "\n\n")
+        dest.write(c.XLD_RIPPER_MODE_PREFIX + self.ripper_mode + "\n")
+        dest.write(c.XLD_DISABLE_AUDIO_CACHE_PREFIX + self.disable_audio_cache + "\n")
+        dest.write(c.XLD_MAKE_USE_OF_C2_POINTERS_PREFIX + ("YES" if self.make_use_of_c2_pointers else "NO") + "\n")
+        dest.write(c.XLD_READ_OFFSET_CORRECTION_PREFIX + str(self.read_offset_correction) + "\n")
+        dest.write(c.XLD_MAX_RETRY_COUNT_PREFIX + str(self.max_retry_count) + "\n")
+        dest.write(c.XLD_GAP_STATUS_PREFIX + self.gap_status + "\n\n")
+        dest.write(c.XLD_TOC_HEADER + "\n")
+        dest.write(c.XLD_TOC_HEADER_TITLE + "\n")
+        dest.write(c.XLD_TOC_HEADER_SEPARATOR + "\n")
         for track in self.toc:
             len_sector = track.end_sector - track.start_sector + 1
             dest.write("       %2d  | %02d:%02d:%02d | %02d:%02d:%02d |    %6d    |   %6d   \n" % (
@@ -556,9 +510,9 @@ class XLDLog:
             ))
         dest.write("\n")
         if len(self.alternate_offset_corrections) > 0:
-            dest.write(XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TITLE + "\n")
-            dest.write(XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_HEAD + "\n")
-            dest.write(XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_SEPARATOR + "\n")
+            dest.write(c.XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TITLE + "\n")
+            dest.write(c.XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_HEAD + "\n")
+            dest.write(c.XLD_ALTERNATE_OFFSET_CORRECTION_VALUES_LIST_TABLE_SEPARATOR + "\n")
             for i, alternate_offset_correction in enumerate(self.alternate_offset_corrections):
                 dest.write("      %3d  |   %4d   |   %4d   |     %2d     \n" % (
                     i + 1,
@@ -568,8 +522,8 @@ class XLDLog:
                 ))
             dest.write("\n")
         if self.accuraterip_disc_id is None:
-            dest.write(XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_HEADER + "\n")
-            dest.write(XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_MESSAGE + "\n")
+            dest.write(c.XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_HEADER + "\n")
+            dest.write(c.XLD_ACCURATERIP_SUMMARY_DISC_NOTFOUND_MESSAGE + "\n")
         else:
             dest.write("AccurateRip Summary (DiscID: " + self.accuraterip_disc_id + ")\n")
             assert self.accuraterip_summary is not None
@@ -620,30 +574,30 @@ class XLDLog:
                     dest.write("\n")
         dest.write("\n")
         if self.all_tracks_summary is not None:
-            dest.write(XLD_ALL_TRACKS_HEADER + "\n")
-            dest.write(XLD_TRACK_STATISTICS_HEADER + "\n")
-            dest.write(XLD_TRACK_STATISTICS_READ_ERROR + str(self.all_tracks_summary.read_error) + "\n")
-            dest.write(XLD_TRACK_STATISTICS_JITTER_ERROR + str(self.all_tracks_summary.jitter_error) + "\n")
-            dest.write(XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT + str(self.all_tracks_summary.retry_sector_count) + "\n")
-            dest.write(XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT + str(self.all_tracks_summary.damaged_sector_count) + "\n")
+            dest.write(c.XLD_ALL_TRACKS_HEADER + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_HEADER + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_READ_ERROR + str(self.all_tracks_summary.read_error) + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_JITTER_ERROR + str(self.all_tracks_summary.jitter_error) + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT + str(self.all_tracks_summary.retry_sector_count) + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT + str(self.all_tracks_summary.damaged_sector_count) + "\n")
             dest.write("\n")
         for track in self.tracks:
             dest.write("Track %02d\n" % (track.no,))
-            dest.write(XLD_TRACK_FILENAME_HEADER + track.filename + "\n")
+            dest.write(c.XLD_TRACK_FILENAME_HEADER + track.filename + "\n")
             if isinstance(track, XLDTrackEntryCancelled):
                 dest.write("    (cancelled by user)\n\n")
                 break
             elif not isinstance(track, XLDTrackEntry):
                 raise Exception("???")
             if track.pre_gap_length > 0:
-                dest.write(XLD_TRACK_PRE_GAP_LENGTH_HEADER + sector_to_second_sector_str(track.pre_gap_length) + "\n")
+                dest.write(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER + sector_to_second_sector_str(track.pre_gap_length) + "\n")
             dest.write("\n")
-            dest.write(XLD_TRACK_CRC32_HASH_HEADER + track.crc32_hash + "\n")
-            dest.write(XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER + track.crc32_skip_zero_hash + "\n")
-            dest.write(XLD_TRACK_ACCURATERIP_V1_HEADER + track.accuraterip_v1 + "\n")
-            dest.write(XLD_TRACK_ACCURATERIP_V2_HEADER + track.accuraterip_v2 + "\n")
+            dest.write(c.XLD_TRACK_CRC32_HASH_HEADER + track.crc32_hash + "\n")
+            dest.write(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER + track.crc32_skip_zero_hash + "\n")
+            dest.write(c.XLD_TRACK_ACCURATERIP_V1_HEADER + track.accuraterip_v1 + "\n")
+            dest.write(c.XLD_TRACK_ACCURATERIP_V2_HEADER + track.accuraterip_v2 + "\n")
             if track.accuraterip_result is None:
-                dest.write(XLD_TRACK_ACCURATERIP_RESULT_NOTFOUND + "\n")
+                dest.write(c.XLD_TRACK_ACCURATERIP_RESULT_NOTFOUND + "\n")
             elif track.accuraterip_result.success_summary is None:
                 dest.write("        ->Rip may not be accurate (total %d submission" % (track.accuraterip_result.confidence_total,))
                 if track.accuraterip_result.confidence_total > 1:
@@ -663,19 +617,19 @@ class XLDLog:
                 if track.accuraterip_result.success_summary.confidence_used_v1 > 0:
                     dest.write("%d+" % (track.accuraterip_result.success_summary.confidence_used_v1,))
                 dest.write("%d/%d)\n" % (track.accuraterip_result.success_summary.confidence_used_v2, track.accuraterip_result.confidence_total))
-            dest.write(XLD_TRACK_STATISTICS_HEADER + "\n")
-            dest.write(XLD_TRACK_STATISTICS_READ_ERROR + str(track.statistics.read_error) + "\n")
-            dest.write(XLD_TRACK_STATISTICS_JITTER_ERROR + str(track.statistics.jitter_error) + "\n")
-            dest.write(XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT + str(track.statistics.retry_sector_count) + "\n")
-            dest.write(XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT + str(track.statistics.damaged_sector_count) + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_HEADER + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_READ_ERROR + str(track.statistics.read_error) + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_JITTER_ERROR + str(track.statistics.jitter_error) + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_RETRY_SECTOR_COUNT + str(track.statistics.retry_sector_count) + "\n")
+            dest.write(c.XLD_TRACK_STATISTICS_DAMAGED_SECTOR_COUNT + str(track.statistics.damaged_sector_count) + "\n")
             if len(track.statistics.damaged_sectors) > 0:
-                dest.write(XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS + "\n")
+                dest.write(c.XLD_TRACK_STATISTICS_LIST_OF_DAMAGED_SECTOR_POSITIONS + "\n")
                 for i, sector in enumerate(track.statistics.damaged_sectors):
                     dest.write("            (%d) %s\n" % (i + 1, sector_to_second_sector_str(sector)))
             dest.write("\n")
         if self.successfly_ripped:
-            dest.write(XLD_FOOTER_NO_ERROR + "\n")
+            dest.write(c.XLD_FOOTER_NO_ERROR + "\n")
         else:
-            dest.write(XLD_FOOTER_SOME_ERROR + "\n")
+            dest.write(c.XLD_FOOTER_SOME_ERROR + "\n")
         dest.write("\n")
-        dest.write(XLD_FOOTER + "\n")
+        dest.write(c.XLD_FOOTER + "\n")
