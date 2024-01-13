@@ -40,6 +40,7 @@ XLD_TRACK_CRC32_HASH_HEADER = "    CRC32 hash               : "
 XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER = "    CRC32 hash (skip zero)   : "
 XLD_TRACK_ACCURATERIP_V1_HEADER = "    AccurateRip v1 signature : "
 XLD_TRACK_ACCURATERIP_V2_HEADER = "    AccurateRip v2 signature : "
+XLD_TRACK_ACCURATERIP_HASH_RE = re.compile(r"^([0-9A-F]{8})(?: \(([0-9A-F]{8}) w/correction\))?$")
 XLD_TRACK_ACCURATERIP_RESULT_SUCCESS_RE = re.compile(r"^        ->Accurately ripped \((.+)\)$")
 XLD_TRACK_ACCURATERIP_RESULT_SUCCESS_DETAIL_RE = re.compile(r"(v1\+v2|v1|v2), confidence ([0-9]+\+)?([0-9]+)/([0-9]+)$")
 XLD_TRACK_ACCURATERIP_RESULT_SUCCESS_WITH_DIFFERENT_OFFSET_RE = re.compile(r"^        ->Accurately ripped with different offset \((.+)\)$")

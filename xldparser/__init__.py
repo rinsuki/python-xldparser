@@ -437,8 +437,14 @@ class XLDLog:
             dest.write("\n")
             dest.write(c.XLD_TRACK_CRC32_HASH_HEADER + track.crc32_hash + "\n")
             dest.write(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER + track.crc32_skip_zero_hash + "\n")
-            dest.write(c.XLD_TRACK_ACCURATERIP_V1_HEADER + track.accuraterip_v1 + "\n")
-            dest.write(c.XLD_TRACK_ACCURATERIP_V2_HEADER + track.accuraterip_v2 + "\n")
+            dest.write(c.XLD_TRACK_ACCURATERIP_V1_HEADER + track.accuraterip_v1)
+            if track.accuraterip_v1_with_correction is not None:
+                dest.write(" (%s w/correction)" % (track.accuraterip_v1_with_correction,))
+            dest.write("\n")
+            dest.write(c.XLD_TRACK_ACCURATERIP_V2_HEADER + track.accuraterip_v2)
+            if track.accuraterip_v2_with_correction is not None:
+                dest.write(" (%s w/correction)" % (track.accuraterip_v2_with_correction,))
+            dest.write("\n")
             if track.accuraterip_result is None:
                 dest.write(c.XLD_TRACK_ACCURATERIP_RESULT_NOTFOUND + "\n")
             elif track.accuraterip_result.success_summary is None:
