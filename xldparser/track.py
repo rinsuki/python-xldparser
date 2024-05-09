@@ -129,6 +129,7 @@ class XLDTrackEntry:
     no: int
     filename: str
     pre_gap_length: SecondSectorInt
+    crc32_hash_test: str | None
     crc32_hash: str
     crc32_skip_zero_hash: str
     accuraterip_v1: str
@@ -159,10 +160,18 @@ class XLDTrackEntry:
             pre_gap_length = SecondSectorInt(0)
 
         crc32_hash = line.readline().rstrip()
+        if crc32_hash.startswith(c.XLD_TRACK_CRC32_HASH_TEST_HEADER):
+            crc32_hash_test = crc32_hash[len(c.XLD_TRACK_CRC32_HASH_TEST_HEADER):]
+            crc32_hash = line.readline().rstrip()
+        else:
+            crc32_hash_test = None
         assert crc32_hash.startswith(c.XLD_TRACK_CRC32_HASH_HEADER)
         crc32_hash = crc32_hash[len(c.XLD_TRACK_CRC32_HASH_HEADER):]
+        if crc32_hash_test is not None and crc32_hash_test != crc32_hash:
+            assert line.readline().rstrip() == c.XLD_TRACK_CRC32_HASH_TEST_FAIL
         crc32_skip_zero_hash = line.readline().rstrip()
         assert crc32_skip_zero_hash.startswith(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER)
+        print(crc32_skip_zero_hash)
         crc32_skip_zero_hash = crc32_skip_zero_hash[len(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER):]
 
         accuraterip_v1 = line.readline().rstrip()
@@ -192,6 +201,7 @@ class XLDTrackEntry:
             no=no,
             filename=filename,
             pre_gap_length=pre_gap_length,
+            crc32_hash_test=crc32_hash_test,
             crc32_hash=crc32_hash,
             crc32_skip_zero_hash=crc32_skip_zero_hash,
             accuraterip_v1=accuraterip_v1,

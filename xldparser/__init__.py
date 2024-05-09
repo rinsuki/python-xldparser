@@ -435,7 +435,11 @@ class XLDLog:
             if track.pre_gap_length > 0:
                 dest.write(c.XLD_TRACK_PRE_GAP_LENGTH_HEADER + track.pre_gap_length.as_second_sector_str() + "\n")
             dest.write("\n")
+            if track.crc32_hash_test is not None:
+                dest.write(c.XLD_TRACK_CRC32_HASH_TEST_HEADER + track.crc32_hash_test + "\n")
             dest.write(c.XLD_TRACK_CRC32_HASH_HEADER + track.crc32_hash + "\n")
+            if track.crc32_hash_test is not None and track.crc32_hash_test != track.crc32_hash:
+                dest.write(c.XLD_TRACK_CRC32_HASH_TEST_FAIL + "\n")
             dest.write(c.XLD_TRACK_CRC32_SKIP_ZERO_HASH_HEADER + track.crc32_skip_zero_hash + "\n")
             dest.write(c.XLD_TRACK_ACCURATERIP_V1_HEADER + track.accuraterip_v1)
             if track.accuraterip_v1_with_correction is not None:
