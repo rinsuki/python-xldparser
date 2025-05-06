@@ -2,6 +2,7 @@
 
 ![GitHub branch check runs](https://img.shields.io/github/check-runs/rinsuki/python-xldparser/main)
 ![PyPI - Version](https://img.shields.io/pypi/v/xldparser)
+![PyPI - License](https://img.shields.io/pypi/l/xldparser)
 
 Parse the [X Lossless Decoder](https://tmkk.undo.jp/xld/) (a.k.a. XLD) log file.
 

@@ -1,6 +1,7 @@
 [project]
 name = "xldparser"
 version = "0.1.3"
+license = "MIT"
 description = "Parse the X Lossless Decoder a.k.a. XLD app log files"
 readme = "README.md"
 authors = [
@@ -8,6 +9,17 @@ authors = [
 ]
 requires-python = ">=3.12.6"
 dependencies = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.urls]
+Homepage = "https://github.com/rinsuki/python-xldparser"
+Repository = "https://github.com/rinsuki/python-xldparser.git"
+Issues = "https://github.com/rinsuki/python-xldparser/issues"
+Changelog = "https://github.com/rinsuki/python-xldparser/releases"
 
 [build-system]
 requires = ["hatchling"]
