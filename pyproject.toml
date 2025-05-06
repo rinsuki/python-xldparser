@@ -1,6 +1,6 @@
 [project]
 name = "xldparser"
-version = "0.1.3"
+version = "0.1.4"
 license = "MIT"
 description = "Parse the X Lossless Decoder a.k.a. XLD app log files"
 readme = "README.md"
