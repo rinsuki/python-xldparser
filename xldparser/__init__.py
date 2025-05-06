@@ -377,7 +377,10 @@ class XLDLog:
                     dest.write("Not Found\n")
                 elif track.entry.success_summary is None:
                     fail_count += 1
-                    dest.write("NG (total %d submissions)\n" % (track.entry.confidence_total,))
+                    if track.entry.confidence_total == 1:
+                        dest.write("NG (total %d submission)\n" % (track.entry.confidence_total,))
+                    else:
+                        dest.write("NG (total %d submissions)\n" % (track.entry.confidence_total,))
                 else:
                     success_count += 1
                     dest.write("OK (")
