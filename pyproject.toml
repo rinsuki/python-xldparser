@@ -1,10 +1,10 @@
 [project]
 name = "xldparser"
 version = "0.1.0"
-description = "Add your description here"
+description = "Parse the X Lossless Decoder a.k.a. XLD app log files"
 readme = "README.md"
 authors = [
-    { name = "rinsuki", email = "428rinsuki+git@gmail.com" }
+    { name = "rinsuki", email = "428rinsuki+pypi@gmail.com" }
 ]
 requires-python = ">=3.12.6"
 dependencies = []
