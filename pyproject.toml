@@ -1,0 +1,14 @@
+[project]
+name = "xldparser"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "rinsuki", email = "428rinsuki+git@gmail.com" }
+]
+requires-python = ">=3.12.6"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
