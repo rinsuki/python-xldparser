@@ -190,9 +190,7 @@ class XLDTrackEntry:
 
         # If one of them is (not) found, the other must be (not) found.
         # TODO: this might be wrong
-        if accuraterip_v1_with_correction is None:
-            assert accuraterip_v2_with_correction is None
-        else:
+        if accuraterip_v1_with_correction is not None:
             assert accuraterip_v2_with_correction is not None
 
         accuraterip_result = XLDAccurateRipResultEntry.parse_track(line.readline().rstrip(), with_different_offset=accuraterip_v1_with_correction is not None or accuraterip_v2_with_correction is not None)
